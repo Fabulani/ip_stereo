@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    <title>Image Processing with Shaders</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+
+        margin: 0;
+        overflow: hidden;
+        background-color: #aaaaaa;
+        background-attachment: fixed !important;
+      }
+    </style>
+    <style>
+      body {
+        font-family: Monospace;
+        margin: 0px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.148.0/build/three.module.js",
+          "three/addons/": "https://unpkg.com/three@0.148.0/examples/jsm/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import * as THREE from "three";
+      import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+      import { GUI } from "three/addons/libs/lil-gui.module.min.js";
+      import WEBGL from "three/addons/capabilities/WebGL.js";
+      import { VideoController } from "./src/VideoController.js";
+      import { setupGui } from "./src/MyGui.js";
+      import Stats from "three/addons/libs/stats.module.js";
+
+      var camera, controls, scene, renderer, container;
+      var context, canvas;
+      var plan;
+      var stats;
+
+      // VIDEO AND THE ASSOCIATED TEXTURE
+      var video, videoTexture;
+
+      var vController;
+
+      var imageProcessing, imageProcessingMaterial;
+
+      init();
+      animate();
+
+      function init() {
+        if (WEBGL.isWebGL2Available() === false) {
+          document.body.appendChild(WEBGL.getWebGL2ErrorMessage());
+        }
+        container = document.createElement("div");
+        document.body.appendChild(container);
+
+        canvas = document.createElement("canvas");
+        context = canvas.getContext("webgl2");
+        document.body.appendChild(canvas);
+
+        scene = new THREE.Scene();
+
+        renderer = new THREE.WebGLRenderer({
+          canvas: canvas,
+          context: context,
+        }); //, antialias: true, alpha: true } );
+        renderer.autoClear = false;
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = false;
+
+        container.appendChild(renderer.domElement);
+
+        // TODO: constrain camera controls to only zoom and pan
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.001, 10);
+        camera.position.z = 0.4;
+        controls = new OrbitControls(camera, renderer.domElement);
+        controls.minDistance = 0.005;
+        controls.maxDistance = 1.0;
+        controls.enableRotate = false;
+        controls.enableZoom = true;
+        controls.addEventListener("change", render);
+        controls.update();
+
+        scene.background = stats = new Stats();
+        container.appendChild(stats.dom);
+
+        // Video controller
+        video = document.createElement("video");
+        vController = new VideoController(scene, video, canvas);
+        vController.setVideo("city.mp4");
+
+        setupGui(vController);
+
+        window.addEventListener("resize", onWindowResize, false);
+      }
+
+      function render() {
+        renderer.clear();
+
+        // Offscreen rendering
+        if (typeof vController.iProcessor !== "undefined") vController.iProcessor.IVprocess(renderer);
+        if (typeof vController.iProcessorDoublePass !== "undefined")
+          vController.iProcessorDoublePass.IVprocess(renderer);
+        if (typeof vController.anaglyph !== "undefined") vController.anaglyph.IVprocess(renderer);
+        renderer.render(scene, camera);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        render();
+        stats.update();
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        render();
+      }
+    </script>
+  </body>
+</html>
